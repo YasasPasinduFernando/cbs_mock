@@ -1,0 +1,9 @@
+services:
+  t24-cbs-mock:
+    build: .
+    container_name: t24-cbs-mock
+    restart: unless-stopped
+    ports:
+      - "8780:8780"
+    volumes:
+      - ./mock_config.json:/app/mock_config.json:ro

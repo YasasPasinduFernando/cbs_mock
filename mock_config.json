@@ -1,0 +1,37 @@
+{
+  "host": "127.0.0.1",
+  "port": 8780,
+  "capacity_tps": 35,
+  "normal_latency_ms": 1000,
+  "max_latency_ms": 10000,
+  "jitter_ms": 120,
+  "overload_exponent": 1.35,
+  "error_rate_over_capacity": 0.0,
+  "default_status": 200,
+  "profiles": [
+    {
+      "name": "CBS account/customer inquiry",
+      "match": ["/esb/DFCC_OB_NEW/v1/OB_SA_details", "/esb/DFCC_OB_NEW/v1/OB_CA_details", "/esb/DFCC_OB_NEW/v1/OB_FD_details", "/esb/DFCC_OB_NEW/v1/OB_CUST_view", "/esb/DFCC_OB_NEW/v1/OB_CASA_view"],
+      "normal_latency_ms": 700,
+      "max_latency_ms": 10000
+    },
+    {
+      "name": "CBS loan details",
+      "match": ["/esb/DFCC_OB_NEW/v1/OB_LOAN_details"],
+      "normal_latency_ms": 1000,
+      "max_latency_ms": 10000
+    },
+    {
+      "name": "CBS fund transfer",
+      "match": ["/esb/transaction/v1/fundTransfer", "/dfcc_ob_transactions/v1/createDfccFundsTransfer"],
+      "normal_latency_ms": 1800,
+      "max_latency_ms": 10000
+    },
+    {
+      "name": "CBS QR and account opening",
+      "match": ["/ob_qrpayment/v1/OB_postCeftInwdRevampQrPymnt", "/esb/ob_account_opening/v1/savingsAccountRupee", "/esb/ob_account_opening/v1/acctPayments", "/esb/ob_fdopen/v1/maturityDepositRupee", "/esb/ob_fdopen/v1/interestPayoutDepositRupee"],
+      "normal_latency_ms": 2500,
+      "max_latency_ms": 10000
+    }
+  ]
+}
