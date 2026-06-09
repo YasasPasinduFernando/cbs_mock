@@ -1,0 +1,10 @@
+# Add these lines to /etc/hosts only if you are testing hostname-based CBS routes.
+# This does NOT redirect dev/sit/uat CBS001/CBS002/CBS003 because those use IP
+# literal URL http://10.18.50.145:7800 in HiddenServices.property.
+#
+# Also remember: /etc/hosts does not change port/protocol.
+# If Spider calls https://uat-esb.dfcc.net:7083, the mock must listen with HTTPS
+# on port 7083 and present a certificate accepted by Spider.
+
+10.18.51.93 uat-esb.dfcc.net
+10.18.51.93 esbprod.dfcc.net

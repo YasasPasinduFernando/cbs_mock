@@ -1,0 +1,23 @@
+# All hostname targets found in HiddenServices.property mapped to the current mock IP.
+# Use only in an isolated test server. Do not apply blindly in shared/prod servers.
+#
+# /etc/hosts cannot redirect IP literal URLs, ports, protocols, or paths.
+# HTTPS targets still require HTTPS/certificate support from the mock.
+
+10.18.51.93 dev-mobileapp.dfcc.lk
+10.18.51.93 sit-mobileapp.dfcc.lk
+10.18.51.93 uat-mobileapp.dfcc.lk
+10.18.51.93 mobileapp.dfcc.lk
+10.18.51.93 s2-preprod-sv-gui-ntf-app.dfcc.net
+10.18.51.93 smartservices.dfcc.net
+10.18.51.93 uateconnector.dfcc.net
+10.18.51.93 econnector.dfcc.net
+10.18.51.93 sitlpoppci.dfcc.net
+10.18.51.93 uatlpoppci.dfcc.net
+10.18.51.93 lpoppci.dfcc.net
+10.18.51.93 wallserstg.mobitel.lk
+10.18.51.93 wallser.mobitel.lk
+10.18.51.93 uat-esb.dfcc.net
+10.18.51.93 esbprod.dfcc.net
+10.18.51.93 reconnapp.dfcc.net
+10.18.51.93 vutilitypay.dfcc.net

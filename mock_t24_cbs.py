@@ -31,6 +31,7 @@ DEFAULT_CONFIG = {
     "overload_exponent": 1.35,
     "error_rate_over_capacity": 0.0,
     "default_status": 200,
+    "replay_file": "",
     "profiles": [],
 }
 
@@ -487,6 +488,27 @@ def load_config(path):
     return config
 
 
+def load_replay_responses(config_path, config):
+    replay_file = config.get("replay_file")
+    if not replay_file:
+        return []
+
+    replay_path = Path(replay_file)
+    if not replay_path.is_absolute():
+        base = Path(config_path).resolve().parent if config_path else Path(__file__).resolve().parent
+        replay_path = base / replay_path
+
+    if not replay_path.exists():
+        print(f"Replay file not found, using synthetic responses only: {replay_path}")
+        return []
+
+    with open(replay_path, "r", encoding="utf-8") as f:
+        loaded = json.load(f)
+    responses = loaded.get("responses", [])
+    print(f"Loaded {len(responses)} replay responses from {replay_path}")
+    return responses
+
+
 def profile_for_path(config, path):
     for profile in config.get("profiles", []):
         for token in profile.get("match", []):
@@ -514,6 +536,22 @@ def compute_delay_ms(config, current_tps):
         delay += random.uniform(-jitter, jitter)
 
     return max(0.0, min(max_latency, delay))
+
+
+def replay_response_for(replay_responses, path, query):
+    for item in replay_responses:
+        if item.get("path") != path:
+            continue
+        expected_query = item.get("query") or {}
+        matches = True
+        for key, expected_value in expected_query.items():
+            actual_values = query.get(key)
+            if not actual_values or str(actual_values[0]) != str(expected_value):
+                matches = False
+                break
+        if matches:
+            return item
+    return None
 
 
 def synthetic_payload(path, method, query):
@@ -688,7 +726,7 @@ def synthetic_payload(path, method, query):
     }
 
 
-def make_handler(state, config):
+def make_handler(state, config, replay_responses):
     class MockHandler(BaseHTTPRequestHandler):
         server_version = "T24CBSMock/1.0"
 
@@ -790,15 +828,25 @@ def make_handler(state, config):
 
             time.sleep(delay_ms / 1000.0)
 
-            status = 503 if is_error else int(effective.get("default_status", 200))
+            replay_item = None if is_error else replay_response_for(replay_responses, parsed.path, query)
+            status = (
+                503
+                if is_error
+                else int(replay_item.get("status", 200))
+                if replay_item
+                else int(effective.get("default_status", 200))
+            )
             payload = (
                 {"message": "Mock overloaded", "code": 503}
                 if is_error
+                else replay_item["body"]
+                if replay_item
                 else synthetic_payload(parsed.path, self.command, query)
             )
             headers = {
                 "X-Mock-Request-No": request_no,
                 "X-Mock-Profile": profile_name,
+                "X-Mock-Replay": str(bool(replay_item)).lower(),
                 "X-Mock-Current-TPS": current_tps,
                 "X-Mock-Capacity-TPS": config["capacity_tps"],
                 "X-Mock-Delay-Ms": int(delay_ms),
@@ -825,8 +873,9 @@ def main():
     if args.port:
         config["port"] = args.port
 
+    replay_responses = load_replay_responses(args.config, config)
     state = CapacityState(config)
-    handler = make_handler(state, config)
+    handler = make_handler(state, config, replay_responses)
     server = ThreadingHTTPServer((config["host"], int(config["port"])), handler)
 
     def shutdown(_signum=None, _frame=None):

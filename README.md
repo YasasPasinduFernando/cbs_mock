@@ -83,6 +83,32 @@ X-Mock-Current-TPS
 X-Mock-Capacity-TPS
 X-Mock-Delay-Ms
 X-Mock-Over-Capacity
+X-Mock-Replay
+```
+
+`X-Mock-Replay: true` means the mock returned a log-derived replay response
+from `replay_responses_2026-06-09.json`. `false` means it used the generic
+synthetic fallback response.
+
+The current default config loads:
+
+```text
+replay_responses_2026-06-09.json
+```
+
+Those replay responses were extracted from the 2026-06-09 SIT Spider trace and
+cover these exact CBS calls:
+
+```text
+GET /esb/DFCC_OB_NEW/v1/OB_CUST_view?clientId=518996
+GET /esb/DFCC_OB_NEW/v1/OB_FD_details?CIF_NO=518996
+GET /esb/DFCC_OB_NEW/v1/OB_LOAN_details?CIF_NO=110185
+GET /esb/DFCC_OB_NEW/v1/OB_LOAN_details?CIF_NO=518996
+GET /esb/DFCC_OB_NEW/v1/OB_SA_details?CIF_NO=1018563
+GET /esb/DFCC_OB_NEW/v1/OB_SA_details?CIF_NO=110185
+GET /esb/DFCC_OB_NEW/v1/OB_CA_details?CIF_NO=1018563
+GET /esb/DFCC_OB_NEW/v1/OB_CASA_view?accountNo=102003987261
+GET /esb/DFCC_OB_NEW/v1/OB_CASA_view?accountNo=102000318539
 ```
 
 ## CBS/T24 Paths Seen in Logs

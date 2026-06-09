@@ -8,6 +8,7 @@
   "overload_exponent": 1.35,
   "error_rate_over_capacity": 0.0,
   "default_status": 200,
+  "replay_file": "replay_responses_2026-06-09.json",
   "profiles": [
     {
       "name": "CBS account/customer inquiry",
