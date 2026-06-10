@@ -74,6 +74,7 @@ http://127.0.0.1:8780/__mock/reset
 curl "http://127.0.0.1:8780/esb/DFCC_OB_NEW/v1/OB_SA_details?CIF_NO=100001"
 curl "http://127.0.0.1:8780/esb/DFCC_OB_NEW/v1/OB_LOAN_details?CIF_NO=100001"
 curl -X POST "http://127.0.0.1:8780/esb/transaction/v1/fundTransfer" -H "Content-Type: application/json" -d "{\"amount\":\"100.00\"}"
+curl -X POST "http://127.0.0.1:8780/rest/epicapi/fundTransfer" -H "Content-Type: application/json" -H "Application: dfcc go" -d "{\"object\":{\"transactionType\":1,\"privateData\":\"0\",\"messageFormatVersion\":\"01\",\"channelType\":1,\"applicationID\":\"001\",\"uniqueNumber\":\"SYMF202602121506444333040\",\"transactionDateAndTime\":\"0212150644\"},\"rrn\":\"102604301389\"}"
 ```
 
 The response includes headers:
@@ -125,6 +126,7 @@ GET  /esb/DFCC_OB_NEW/v1/OB_CASA_view
 GET  /t24_account_statement_api/v1/getAccMiniStatement
 POST /esb/transaction/v1/fundTransfer
 POST /dfcc_ob_transactions/v1/createDfccFundsTransfer
+POST /rest/epicapi/fundTransfer
 POST /ob_qrpayment/v1/OB_postCeftInwdRevampQrPymnt
 POST /esb/ob_account_opening/v1/savingsAccountRupee
 POST /esb/ob_account_opening/v1/acctPayments
@@ -143,7 +145,35 @@ AccountDetails_CBS002
 CustomerDetailsCID_CBS003
 TransactionListing_CBS017
 FundTransfer_CBS011
+EpicFundTransfer_EPIC001
 ```
+
+`/rest/epicapi/fundTransfer` returns the EPIC API response shape:
+
+```json
+{
+  "object": {
+    "messageFormatVersion": "01",
+    "applicationID": "001",
+    "channelType": "1",
+    "transactionType": "1",
+    "uniqueNumber": "SYMF202602121506444333040",
+    "transactionDateAndTime": "0212150644",
+    "privateData": "0"
+  },
+  "status": "5",
+  "rrn": "102604301389",
+  "responseCode": "00",
+  "common": null,
+  "stan": "123456",
+  "refNo": "RANDOM_32_HEX_VALUE",
+  "profileCode": null
+}
+```
+
+If Spider is still configured to call `https://uateconnector.dfcc.net:8090`,
+the request must be routed to this mock with a matching protocol/port setup
+or by changing the relevant hidden-service config to the mock URL.
 
 This is enough for latency/load/timeout benchmarking. It is not a full T24 simulator for every business field and every edge case.
 

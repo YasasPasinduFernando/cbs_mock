@@ -20,7 +20,36 @@ DEFAULT_PATHS = [
     "/esb/DFCC_OB_NEW/v1/OB_LOAN_details?CIF_NO=100001",
     "/esb/DFCC_OB_NEW/v1/OB_CUST_view?clientId=100001",
     "/esb/transaction/v1/fundTransfer",
+    "/rest/epicapi/fundTransfer",
 ]
+
+
+def epic_fund_transfer_request():
+    return {
+        "object": {
+            "transactionType": 1,
+            "privateData": "0",
+            "messageFormatVersion": "01",
+            "channelType": 1,
+            "applicationID": "001",
+            "uniqueNumber": f"SYMF{int(time.time() * 1000)}",
+            "transactionDateAndTime": time.strftime("%m%d%H%M%S"),
+        },
+        "fromAccount": "102006511225",
+        "fromAccountName": "MOCK CUSTOMER",
+        "toAccount": "12345678",
+        "toAccountName": "MOCK BENEFICIARY",
+        "txnAmount": "000000550000",
+        "tranCode": "52",
+        "merchantType": "6013",
+        "creditReference": "FT Other Bank",
+        "serviceCharge": "000000002500",
+        "destBankCode": "6990",
+        "debitReference": "FT Other Bank",
+        "rrn": f"{int(time.time() * 1000) % 1000000000000:012d}",
+        "captureDate": time.strftime("%m%d"),
+        "settlmentDate": time.strftime("%m%d"),
+    }
 
 
 def percentile(values, pct):
@@ -39,7 +68,12 @@ def request_once(base_url, path, timeout):
     data = None
     headers = {}
     method = "GET"
-    if "fundTransfer" in path:
+    if "epicapi/fundTransfer" in path:
+        method = "POST"
+        data = json.dumps(epic_fund_transfer_request()).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+        headers["Application"] = "dfcc go"
+    elif "fundTransfer" in path:
         method = "POST"
         data = json.dumps({"amount": "100.00", "mock": True}).encode("utf-8")
         headers["Content-Type"] = "application/json"

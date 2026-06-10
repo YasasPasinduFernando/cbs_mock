@@ -554,7 +554,37 @@ def replay_response_for(replay_responses, path, query):
     return None
 
 
-def synthetic_payload(path, method, query):
+def epic_fund_transfer_payload(request_json):
+    request_json = request_json if isinstance(request_json, dict) else {}
+    obj = request_json.get("object") if isinstance(request_json.get("object"), dict) else {}
+
+    response_object = {
+        "messageFormatVersion": str(obj.get("messageFormatVersion", "01")),
+        "applicationID": str(obj.get("applicationID", "001")),
+        "channelType": str(obj.get("channelType", "1")),
+        "transactionType": str(obj.get("transactionType", "1")),
+        "uniqueNumber": str(
+            obj.get("uniqueNumber", f"SYMF{int(time.time() * 1000)}")
+        ),
+        "transactionDateAndTime": str(
+            obj.get("transactionDateAndTime", time.strftime("%m%d%H%M%S"))
+        ),
+        "privateData": str(obj.get("privateData", "0")),
+    }
+
+    return {
+        "object": response_object,
+        "status": "5",
+        "rrn": str(request_json.get("rrn", f"{random.randint(0, 999999999999):012d}")),
+        "responseCode": "00",
+        "common": None,
+        "stan": f"{random.randint(0, 999999):06d}",
+        "refNo": f"{random.getrandbits(128):032X}",
+        "profileCode": None,
+    }
+
+
+def synthetic_payload(path, method, query, request_json=None):
     if "OB_SA_details" in path:
         return [
             {
@@ -682,6 +712,8 @@ def synthetic_payload(path, method, query):
                 "legalDocName": "NIC",
             }
         ]
+    if "epicapi/fundTransfer" in path:
+        return epic_fund_transfer_payload(request_json)
     if "fundTransfer" in path or "createDfccFundsTransfer" in path:
         external_ref = f"MOCK{int(time.time() * 1000)}"
         return {
@@ -817,7 +849,12 @@ def make_handler(state, config, replay_responses):
                 return
 
             body = self.read_body()
-            _ = body  # Body is consumed so clients can send real payloads.
+            request_json = None
+            if body:
+                try:
+                    request_json = json.loads(body.decode("utf-8"))
+                except Exception:
+                    request_json = None
             query = parse_qs(parsed.query)
             request_no, current_tps = state.begin_request()
             profile_name, effective = profile_for_path(config, parsed.path)
@@ -841,7 +878,7 @@ def make_handler(state, config, replay_responses):
                 if is_error
                 else replay_item["body"]
                 if replay_item
-                else synthetic_payload(parsed.path, self.command, query)
+                else synthetic_payload(parsed.path, self.command, query, request_json)
             )
             headers = {
                 "X-Mock-Request-No": request_no,

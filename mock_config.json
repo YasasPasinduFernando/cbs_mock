@@ -23,6 +23,12 @@
       "max_latency_ms": 10000
     },
     {
+      "name": "EPIC fund transfer",
+      "match": ["/rest/epicapi/fundTransfer"],
+      "normal_latency_ms": 1800,
+      "max_latency_ms": 10000
+    },
+    {
       "name": "CBS fund transfer",
       "match": ["/esb/transaction/v1/fundTransfer", "/dfcc_ob_transactions/v1/createDfccFundsTransfer"],
       "normal_latency_ms": 1800,
