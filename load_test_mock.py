@@ -10,6 +10,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
@@ -86,12 +87,18 @@ def request_once(base_url, path, timeout):
             status = resp.status
             mock_delay = resp.headers.get("X-Mock-Delay-Ms")
             mock_tps = resp.headers.get("X-Mock-Current-TPS")
+            mock_profile = resp.headers.get("X-Mock-Profile")
+            mock_route = resp.headers.get("X-Mock-Route")
+            mock_replay = resp.headers.get("X-Mock-Replay")
             ok = 200 <= status < 400
     except urllib.error.HTTPError as exc:
         exc.read()
         status = exc.code
         mock_delay = exc.headers.get("X-Mock-Delay-Ms")
         mock_tps = exc.headers.get("X-Mock-Current-TPS")
+        mock_profile = exc.headers.get("X-Mock-Profile")
+        mock_route = exc.headers.get("X-Mock-Route")
+        mock_replay = exc.headers.get("X-Mock-Replay")
         ok = False
     except Exception as exc:
         return {
@@ -101,6 +108,9 @@ def request_once(base_url, path, timeout):
             "elapsed_ms": (time.perf_counter() - started) * 1000.0,
             "mock_delay_ms": None,
             "mock_tps": None,
+            "mock_profile": None,
+            "mock_route": None,
+            "mock_replay": None,
         }
     return {
         "ok": ok,
@@ -109,6 +119,9 @@ def request_once(base_url, path, timeout):
         "elapsed_ms": (time.perf_counter() - started) * 1000.0,
         "mock_delay_ms": int(mock_delay) if mock_delay else None,
         "mock_tps": int(mock_tps) if mock_tps else None,
+        "mock_profile": mock_profile,
+        "mock_route": mock_route,
+        "mock_replay": mock_replay,
     }
 
 
@@ -156,6 +169,12 @@ def print_summary(results, elapsed):
     print(f"Max: {max(latencies):.0f}ms")
     max_mock_tps = max((r["mock_tps"] or 0 for r in results), default=0)
     print(f"Max mock-observed TPS header: {max_mock_tps}")
+    profile_counts = Counter(r["mock_profile"] or "unknown" for r in results)
+    route_counts = Counter(r["mock_route"] or "unknown" for r in results)
+    replay_counts = Counter(str(r["mock_replay"]) for r in results)
+    print(f"Profiles: {dict(profile_counts)}")
+    print(f"Routes: {dict(route_counts)}")
+    print(f"Replay headers: {dict(replay_counts)}")
 
 
 def main():

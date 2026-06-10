@@ -50,6 +50,12 @@ Stats endpoint:
 http://127.0.0.1:8780/__mock/stats
 ```
 
+Version endpoint:
+
+```text
+http://127.0.0.1:8780/__mock/version
+```
+
 Config endpoint:
 
 ```text
@@ -85,11 +91,25 @@ X-Mock-Capacity-TPS
 X-Mock-Delay-Ms
 X-Mock-Over-Capacity
 X-Mock-Replay
+X-Mock-Profile
+X-Mock-Route
+X-Mock-Version
 ```
 
 `X-Mock-Replay: true` means the mock returned a log-derived replay response
 from `replay_responses_2026-06-09.json`. `false` means it used the generic
 synthetic fallback response.
+
+For EPIC fund transfer checks, confirm:
+
+```text
+X-Mock-Profile: EPIC fund transfer
+X-Mock-Route: epic-fund-transfer
+```
+
+If the profile is `default` and the delay is close to `1000ms`, the request did
+not match the EPIC profile. If the route is `cbs-fund-transfer`, Spider or a
+proxy is hitting the CBS fund-transfer path instead of `/rest/epicapi/fundTransfer`.
 
 The current default config loads:
 
@@ -174,6 +194,17 @@ EpicFundTransfer_EPIC001
 If Spider is still configured to call `https://uateconnector.dfcc.net:8090`,
 the request must be routed to this mock with a matching protocol/port setup
 or by changing the relevant hidden-service config to the mock URL.
+
+Direct deployed-server verification:
+
+```bash
+curl -i http://10.18.51.93:8780/__mock/version
+
+curl -i -X POST "http://10.18.51.93:8780/rest/epicapi/fundTransfer" \
+  -H "Content-Type: application/json" \
+  -H "Application: dfcc go" \
+  -d "{\"object\":{\"transactionType\":1,\"privateData\":\"0\",\"messageFormatVersion\":\"01\",\"channelType\":1,\"applicationID\":\"001\",\"uniqueNumber\":\"SYMF202602121506444333040\",\"transactionDateAndTime\":\"0212150644\"},\"rrn\":\"102604301389\"}"
+```
 
 This is enough for latency/load/timeout benchmarking. It is not a full T24 simulator for every business field and every edge case.
 

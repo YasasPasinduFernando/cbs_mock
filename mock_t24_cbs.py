@@ -21,6 +21,9 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 
+MOCK_VERSION = "2026-06-10-epic-route-v2"
+
+
 DEFAULT_CONFIG = {
     "host": "127.0.0.1",
     "port": 8780,
@@ -304,6 +307,7 @@ UI_HTML = r"""<!doctype html>
       <button onclick="sendTest('/esb/DFCC_OB_NEW/v1/OB_LOAN_details?CIF_NO=100001')">Test CBS Loan</button>
       <button onclick="sendTest('/esb/DFCC_OB_NEW/v1/OB_SA_details?CIF_NO=100001')">Test CBS Savings</button>
       <button onclick="sendTest('/esb/transaction/v1/fundTransfer', 'POST')">Test Fund Transfer</button>
+      <button onclick="sendEpicTest()">Test EPIC FT</button>
     </div>
   </section>
 
@@ -328,6 +332,7 @@ UI_HTML = r"""<!doctype html>
     <h2>Quick Test URLs</h2>
     <div class="sample">curl "http://127.0.0.1:8780/esb/DFCC_OB_NEW/v1/OB_LOAN_details?CIF_NO=100001"
 curl -X POST "http://127.0.0.1:8780/esb/transaction/v1/fundTransfer" -H "Content-Type: application/json" -d "{\"amount\":\"100.00\"}"
+curl -X POST "http://127.0.0.1:8780/rest/epicapi/fundTransfer" -H "Content-Type: application/json" -H "Application: dfcc go" -d "{\"object\":{\"transactionType\":1,\"privateData\":\"0\",\"messageFormatVersion\":\"01\",\"channelType\":1,\"applicationID\":\"001\",\"uniqueNumber\":\"SYMF202602121506444333040\",\"transactionDateAndTime\":\"0212150644\"},\"rrn\":\"102604301389\"}"
 python cbs_mock\load_test_mock.py --tps 50 --duration 30 --timeout 20</div>
   </section>
 
@@ -467,6 +472,37 @@ async function sendTest(path, method = "GET") {
   }
 }
 
+async function sendEpicTest() {
+  try {
+    const payload = {
+      object: {
+        transactionType: 1,
+        privateData: "0",
+        messageFormatVersion: "01",
+        channelType: 1,
+        applicationID: "001",
+        uniqueNumber: `SYMF${Date.now()}`,
+        transactionDateAndTime: "0212150644"
+      },
+      rrn: "102604301389"
+    };
+    const started = performance.now();
+    const res = await fetch("/rest/epicapi/fundTransfer", {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "Application": "dfcc go"},
+      body: JSON.stringify(payload)
+    });
+    const body = await res.json();
+    const elapsed = Math.round(performance.now() - started);
+    const delay = res.headers.get("X-Mock-Delay-Ms");
+    const profile = res.headers.get("X-Mock-Profile");
+    await loadAll();
+    setStatus(`EPIC OK: HTTP ${res.status}, response ${body.responseCode}, profile ${profile}, elapsed ${elapsed}ms, mock delay ${delay}ms`);
+  } catch (err) {
+    setStatus(`EPIC test failed: ${err.message}`, true);
+  }
+}
+
 loadAll();
 setInterval(async () => {
   try {
@@ -510,13 +546,18 @@ def load_replay_responses(config_path, config):
 
 
 def profile_for_path(config, path):
+    normalized_path = normalize_path(path)
     for profile in config.get("profiles", []):
         for token in profile.get("match", []):
-            if token and token in path:
+            if token and normalize_path(token) in normalized_path:
                 merged = dict(config)
                 merged.update(profile)
                 return profile.get("name", "matched"), merged
     return "default", config
+
+
+def normalize_path(path):
+    return (path or "").rstrip("/").lower()
 
 
 def compute_delay_ms(config, current_tps):
@@ -539,8 +580,9 @@ def compute_delay_ms(config, current_tps):
 
 
 def replay_response_for(replay_responses, path, query):
+    normalized_path = normalize_path(path)
     for item in replay_responses:
-        if item.get("path") != path:
+        if normalize_path(item.get("path")) != normalized_path:
             continue
         expected_query = item.get("query") or {}
         matches = True
@@ -552,6 +594,18 @@ def replay_response_for(replay_responses, path, query):
         if matches:
             return item
     return None
+
+
+def route_name_for_path(path):
+    normalized_path = normalize_path(path)
+    if normalized_path == "/rest/epicapi/fundtransfer":
+        return "epic-fund-transfer"
+    if normalized_path in {
+        "/esb/transaction/v1/fundtransfer",
+        "/dfcc_ob_transactions/v1/createdfccfundstransfer",
+    }:
+        return "cbs-fund-transfer"
+    return "synthetic"
 
 
 def epic_fund_transfer_payload(request_json):
@@ -585,7 +639,8 @@ def epic_fund_transfer_payload(request_json):
 
 
 def synthetic_payload(path, method, query, request_json=None):
-    if "OB_SA_details" in path:
+    normalized_path = normalize_path(path)
+    if "ob_sa_details" in normalized_path:
         return [
             {
                 "accountId": "102000000001",
@@ -605,7 +660,7 @@ def synthetic_payload(path, method, query, request_json=None):
                 "customerPostingRestrict": "N",
             }
         ]
-    if "OB_CA_details" in path:
+    if "ob_ca_details" in normalized_path:
         return [
             {
                 "accountNumber": "101000000001",
@@ -624,7 +679,7 @@ def synthetic_payload(path, method, query, request_json=None):
                 "customerPostingRestrict": "N",
             }
         ]
-    if "OB_FD_details" in path:
+    if "ob_fd_details" in normalized_path:
         return [
             {
                 "accountNumber": "103000000001",
@@ -642,7 +697,7 @@ def synthetic_payload(path, method, query, request_json=None):
                 "productId": "FD.DEPOSIT.MAT.P",
             }
         ]
-    if "OB_LOAN_details" in path:
+    if "ob_loan_details" in normalized_path:
         return [
             {
                 "accountNumber": "104000000001",
@@ -658,7 +713,7 @@ def synthetic_payload(path, method, query, request_json=None):
                 "arrNo": "AA-MOCK-LOAN",
             }
         ]
-    if "OB_CASA_view" in path:
+    if "ob_casa_view" in normalized_path:
         return [
             {
                 "accountNo": query.get("accountNo", ["102000000001"])[0],
@@ -684,7 +739,7 @@ def synthetic_payload(path, method, query, request_json=None):
                 "customerPostingRestrict": "N",
             }
         ]
-    if "OB_CUST_view" in path or "OB_CASA_view" in path:
+    if "ob_cust_view" in normalized_path or "ob_casa_view" in normalized_path:
         return [
             {
                 "clientId": query.get("clientId", ["100001"])[0],
@@ -712,9 +767,12 @@ def synthetic_payload(path, method, query, request_json=None):
                 "legalDocName": "NIC",
             }
         ]
-    if "epicapi/fundTransfer" in path:
+    if normalized_path == "/rest/epicapi/fundtransfer":
         return epic_fund_transfer_payload(request_json)
-    if "fundTransfer" in path or "createDfccFundsTransfer" in path:
+    if normalized_path in {
+        "/esb/transaction/v1/fundtransfer",
+        "/dfcc_ob_transactions/v1/createdfccfundstransfer",
+    }:
         external_ref = f"MOCK{int(time.time() * 1000)}"
         return {
             "header": {"status": "success", "audit": {"t24Time": int(time.time())}},
@@ -736,7 +794,7 @@ def synthetic_payload(path, method, query, request_json=None):
                 {"body": {"currencyId": "LKR", "accountId": "102000000001"}},
             ],
         }
-    if "getAccMiniStatement" in path:
+    if "getaccministatement" in normalized_path:
         return {
             "header": {"status": "success", "total_size": 1},
             "body": [
@@ -790,6 +848,7 @@ def make_handler(state, config, replay_responses):
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("X-Mock-Version", MOCK_VERSION)
             super().end_headers()
 
         def do_OPTIONS(self):
@@ -823,6 +882,16 @@ def make_handler(state, config, replay_responses):
                 return
             if parsed.path == "/__mock/stats":
                 self.write_json(200, state.snapshot())
+                return
+            if parsed.path == "/__mock/version":
+                self.write_json(
+                    200,
+                    {
+                        "version": MOCK_VERSION,
+                        "profiles": [profile.get("name") for profile in config.get("profiles", [])],
+                        "replay_responses": len(replay_responses),
+                    },
+                )
                 return
             if parsed.path == "/__mock/config":
                 if self.command == "POST":
@@ -883,6 +952,13 @@ def make_handler(state, config, replay_responses):
             headers = {
                 "X-Mock-Request-No": request_no,
                 "X-Mock-Profile": profile_name,
+                "X-Mock-Route": (
+                    "overloaded"
+                    if is_error
+                    else replay_item.get("service", "replay")
+                    if replay_item
+                    else route_name_for_path(parsed.path)
+                ),
                 "X-Mock-Replay": str(bool(replay_item)).lower(),
                 "X-Mock-Current-TPS": current_tps,
                 "X-Mock-Capacity-TPS": config["capacity_tps"],
